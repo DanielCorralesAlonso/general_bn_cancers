@@ -8,7 +8,7 @@ from pgmpy.estimators import HillClimbSearch, BDsScore
 from pgmpy.factors.discrete import State
 
 from preprocessing import preprocessing
-import config
+import configs.config_CRC as config_CRC
 
 
 # ---- Read CSV and short preprocessing ---------------------------------
@@ -23,9 +23,9 @@ print("Successful data read")
 
 
 # ---- Structure Learning -----------------------------------------------
-target = config.inputs["target"]
-blck_lst = config.structure["black_list"]
-fxd_edges = config.structure["fixed_edges"]
+target = config_CRC.inputs["target"]
+blck_lst = config_CRC.structure["black_list"]
+fxd_edges = config_CRC.structure["fixed_edges"]
 
 from pgmpy.estimators import HillClimbSearch, BDsScore
 
@@ -57,7 +57,7 @@ file_name = str('cancer_colorrectal_prior') + '.png'
 file_path = os.path.join(path,file_name)
 
 gumimage.export(bn_gum, file_path, size = "20!",
-                nodeColor = config.node_color,
+                nodeColor = config_CRC.node_color,
                             )
 
 # POSTERIOR NET
@@ -74,7 +74,7 @@ file_name = str('cancer_colorrectal_learned_bds') + '.png'
 file_path = os.path.join(path,file_name)
 
 gumimage.export(bn_gum_2, file_path, size = "20!",
-                 nodeColor = config.node_color,
+                 nodeColor = config_CRC.node_color,
               
                 cmapArc =  plt.get_cmap("hot"),
                 arcColor= arcColor_mine )
@@ -143,8 +143,8 @@ print("Successful statistics save")
 from risk_mapping import heatmap_plot_and_save
 from predictive_interval import predictive_interval
 
-col_var = config.pointwise_risk_mapping["col_var"]
-row_var = config.pointwise_risk_mapping["row_var"]
+col_var = config_CRC.pointwise_risk_mapping["col_var"]
+row_var = config_CRC.pointwise_risk_mapping["row_var"]
 
 heatmap_plot_and_save(df, model_bn, col_var, row_var)
 
@@ -153,12 +153,12 @@ heatmap_plot_and_save(df, model_bn, col_var, row_var)
 # by sampling. However, it is a task that requires relatively large computation and time 
 # resources, so we encourage to use the example case available.
 
-calculate_interval = config.inputs["calculate_interval"]
+calculate_interval = config_CRC.inputs["calculate_interval"]
 if calculate_interval:
     predictive_interval(model_bn, col_var, row_var, path_to_data = "interval_df/")
 
-col_var = config.interval_risk_mapping["col_var"]
-row_var = config.interval_risk_mapping["row_var"]
+col_var = config_CRC.interval_risk_mapping["col_var"]
+row_var = config_CRC.interval_risk_mapping["row_var"]
 
 heatmap_plot_and_save(df, model_bn, col_var, row_var, interval = True)
 
@@ -174,7 +174,7 @@ from influential_variables import influential_variables
 df_pos = df[df[target] == True].copy()
 
 # Increase the n_random_trials to get meaningful results.
-heatmap_data = influential_variables(data=df_pos, target=target, model_bn = model_bn, n_random_trials = config.inputs["n_random_trials"])
+heatmap_data = influential_variables(data=df_pos, target=target, model_bn = model_bn, n_random_trials = config_CRC.inputs["n_random_trials"])
 
 print("Successful influential variables")
 # -----------------------------------------------------------------------
