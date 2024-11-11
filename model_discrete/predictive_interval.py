@@ -73,28 +73,28 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 25000 , q_length
                 a = np.sort(q)
 
                 if Sex == "M":
-                    df_hom_inf[column][row] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
-                    df_hom_sup[column][row] = round( a[round(q_length*94.9 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
+                    df_hom_inf.loc[row,column] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
+                    df_hom_sup.loc[row,column] = round( a[round(q_length*94.9 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
 
-                    df_hom_str[column][row] = f"[ {df_hom_inf[column][row]}, {df_hom_sup[column][row]}]"
+                    df_hom_str.loc[row,column] = f"[ {df_hom_inf.loc[row,column]}, {df_hom_sup.loc[row,column]}]"
 
-                    print(f'Risk interval for men with {col_var} = {column} and {row_var} = {row} is: {df_hom_str[column][row]} ({n_samples} samples and interval of size {q_length})')
+                    print(f'Risk interval for men with {col_var} = {column} and {row_var} = {row} is: {df_hom_str.loc[row,column]} ({n_samples} samples and interval of size {q_length})')
 
-                    df_hom[column][row] = round( q_point - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
+                    df_hom.loc[row,column] = round( q_point - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
 
-                    print(f'Pointwise estimation of the risk:', df_hom[column][row])
+                    print(f'Pointwise estimation of the risk:', df_hom.loc[row,column])
                     
                 else:
-                    df_muj_inf[column][row] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
-                    df_muj_sup[column][row] = round( a[round(q_length*94.9 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
+                    df_muj_inf.loc[row,column] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
+                    df_muj_sup.loc[row,column] = round( a[round(q_length*94.9 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
 
-                    df_muj_str[column][row] = f"[ {df_muj_inf[column][row]}, {df_muj_sup[column][row]}]"
+                    df_muj_str.loc[row,column] = f"[ {df_muj_inf.loc[row,column]}, {df_muj_sup.loc[row,column]}]"
 
-                    print(f'Risk interval for women with {col_var} = {column} and {row_var} = {row} is: {df_muj_str[column][row]} ({n_samples} samples and interval of size {q_length})')
+                    print(f'Risk interval for women with {col_var} = {column} and {row_var} = {row} is: {df_muj_str.loc[row,column]} ({n_samples} samples and interval of size {q_length})')
 
-                    df_muj[column][row] = round( q_point - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
+                    df_muj.loc[row,column] = round( q_point - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
 
-                    print(f'Pointwise estimation of the risk:', df_muj[column][row])
+                    print(f'Pointwise estimation of the risk:', df_muj.loc[row,column])
 
                 df_hom.to_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}.csv")
                 df_muj.to_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}.csv")

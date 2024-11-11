@@ -6,6 +6,9 @@ from pgmpy.inference import VariableElimination
 from pgmpy.models import BayesianNetwork
 
 from preprocessing import preprocessing
+from data_cleaning.cleaning_disc import data_clean_discrete
+
+import pdb
 
 
 def create_pscount_dict_from_model(model_bn, card_dict, prior_weight, size_prior_dataset):
@@ -22,7 +25,8 @@ def prior_update_iteration(model_bn, card_dict, pscount_dict, size_prior_dataset
     counts_per_year = dict.fromkeys(years, None)
     prior_weight_list = [1, 50, 100, 500]
     for i in range(len(years)):
-        df_aux = pd.read_csv(f"data/df_{years[i]}.csv", index_col = None).copy()
+        df_aux = pd.read_csv("data/af_clean.csv", index_col = None)
+        df_aux = data_clean_discrete(df_aux, selected_year = years[i])
         df_aux = preprocessing(df_aux)
         
         counts_tables = model_bn.fit(df_aux, estimator=BayesianEstimator,weighted = False, prior_type = 'dirichlet', pseudo_counts = pscount_dict, n_jobs = -1)

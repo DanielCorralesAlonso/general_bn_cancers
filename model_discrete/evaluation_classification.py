@@ -10,7 +10,21 @@ from pgmpy.inference import VariableElimination
 
 from query2df import query2df
 
+import os
+import os.path as mkdir
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
+import pdb
+import yaml
+import os
+
+dir = os.getcwd()
+with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
+    cfg = yaml.safe_load(file)
+
 def evaluation_classification(df_test, model_bn, test_var = "CRC"):
+    
 
     model_infer = VariableElimination(model_bn)
 
@@ -23,14 +37,17 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     y_prob_pred = []
 
 
-    for i in range(df_test.shape[0]):
+    '''with ProcessPoolExecutor(max_workers=cfg["inputs"]['max_workers']//2) as executor:
+        futures = [executor.submit(run_iteration_y_pred, i, df_test.iloc[i] , model_infer, test_var) for i in range(df_test.shape[0])]
+        all_results = []
+'''
+    for i in tqdm(range(df_test.shape[0]), desc="Processing samples"):
+        sample = df_test.iloc[i]
+        sample = sample.drop(labels = [test_var])
+        sample_dict = sample.to_dict()
+        q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
 
-            sample = df_test.iloc[i].drop(labels = [test_var])
-            sample_dict = sample.to_dict() 
-            q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
-
-            y_prob_pred.append(query2df(q_sample, verbose = 0)["p"][1])
-
+        y_prob_pred.append(query2df(q_sample, verbose = 0)["p"][1])
 
     fpr, tpr, thresholds = roc_curve(list(df_test[test_var]*1), y_prob_pred)
     # calculate the g-mean for each threshold
@@ -52,6 +69,8 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     conf_mat = confusion_matrix(list(df_test[test_var]), y_pred)
     disp = ConfusionMatrixDisplay(conf_mat, display_labels=np.array(sorted(set(df_test[test_var]*1))) )
     disp.plot()
+    plt.savefig(f"images/{test_var}/{test_var}_confusion_matrix.png")
+    plt.close()
 
     brier_score.append(brier_score_loss(list(df_test[test_var]*1), y_prob_pred))
 
@@ -61,6 +80,8 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     prob_true, prob_pred = calibration_curve(list(df_test[test_var]*1), y_prob_pred, n_bins = 20, strategy="quantile")
     disp = CalibrationDisplay(prob_true, prob_pred, y_prob_pred)
     disp.plot(name = test_var)
+    plt.savefig(f"images/{test_var}/{test_var}_calibration_plot.png")
+    plt.close()     
 
     plt.xlim([0, max(max(prob_pred), max(prob_true))])  #CRC: 0.005, Diabetes: 0.25
     plt.ylim([0, max(max(prob_pred), max(prob_true))])
@@ -70,7 +91,8 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
 
     # Show the modified plot
     plt.title(f"Calibration plot for {test_var}")
-    plt.show()
+    plt.savefig(f"images/{test_var}/{test_var}_calibration_plot_zoomed.png")
+    plt.close()
 
     report = classification_report(list(df_test[test_var]*1), y_pred, output_dict=True)
 
@@ -85,3 +107,16 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     print("\nAverage Specificity: ", np.mean(specificity_iter), '+/- ', np.std(specificity_iter))
 
     return y_prob_pred
+
+
+
+def run_iteration_y_pred(i, sample, model_infer, test_var):
+    sample = sample.drop(labels = [test_var])
+    sample_dict = sample.to_dict() 
+    q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
+
+    result = (query2df(q_sample, verbose = 0)["p"][1]).round(7)
+
+    print(result)
+
+    return result 
