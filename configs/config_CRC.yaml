@@ -4,7 +4,8 @@ cancer_renamed: &cancer CRC
 inputs: 
     target: *cancer
     calculate_interval: False
-    n_random_trials: 5 
+    n_random_trials: 100
+    max_workers: 8
 
 node_color:
     Age: 0.3
@@ -106,6 +107,7 @@ fixed_edges:
     - ['PA', 'Hyperchol'] 
     - ['PA', 'Hypertension'] 
     - ['PA', 'BMI']
+    - ['PA', 'CRC'] # prueba
 
     - ['Diabetes', *cancer] 
     - ['Diabetes', 'Hypertension']

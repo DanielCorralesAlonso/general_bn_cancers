@@ -81,7 +81,7 @@ def heatmap_plot_and_save(df, model_bn, target, col_var, row_var, q_length = 40,
     )
 
     if save:
-        fig.savefig(f"images/{target}/point_risk_map_men_{col_var}_{row_var}.png")
+        fig.savefig(f"images/{target}/point_risk_map_men_{col_var}_{row_var}.png", bbox_inches='tight')
         plt.close()
 
     corr = pd.melt(df_muj.reset_index(), id_vars='index') 
@@ -106,8 +106,7 @@ def heatmap_plot_and_save(df, model_bn, target, col_var, row_var, q_length = 40,
     )
 
     if save:
-        plt.tight_layout()
-        fig.savefig(f"images/{target}/point_risk_map_women_{col_var}_{row_var}.png")
+        fig.savefig(f"images/{target}/point_risk_map_women_{col_var}_{row_var}.png", bbox_inches='tight')
 
         df_hom.to_csv(f"riskmap_datasets/{target}/men_pointwise_est_risk_map_{col_var}_{row_var}.csv")
         df_muj.to_csv(f"riskmap_datasets/{target}/women_pointwise_est_risk_map_{col_var}_{row_var}.csv")

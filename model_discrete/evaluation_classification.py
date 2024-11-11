@@ -13,6 +13,16 @@ from query2df import query2df
 import os
 import os.path as mkdir
 
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
+import pdb
+import yaml
+import os
+
+dir = os.getcwd()
+with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
+    cfg = yaml.safe_load(file)
+
 def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     
 
@@ -27,14 +37,17 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     y_prob_pred = []
 
 
-    for i in range(df_test.shape[0]):
+    '''with ProcessPoolExecutor(max_workers=cfg["inputs"]['max_workers']//2) as executor:
+        futures = [executor.submit(run_iteration_y_pred, i, df_test.iloc[i] , model_infer, test_var) for i in range(df_test.shape[0])]
+        all_results = []
+'''
+    for i in tqdm(range(df_test.shape[0]), desc="Processing samples"):
+        sample = df_test.iloc[i]
+        sample = sample.drop(labels = [test_var])
+        sample_dict = sample.to_dict()
+        q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
 
-            sample = df_test.iloc[i].drop(labels = [test_var])
-            sample_dict = sample.to_dict() 
-            q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
-
-            y_prob_pred.append(query2df(q_sample, verbose = 0)["p"][1])
-
+        y_prob_pred.append(query2df(q_sample, verbose = 0)["p"][1])
 
     fpr, tpr, thresholds = roc_curve(list(df_test[test_var]*1), y_prob_pred)
     # calculate the g-mean for each threshold
@@ -94,3 +107,16 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     print("\nAverage Specificity: ", np.mean(specificity_iter), '+/- ', np.std(specificity_iter))
 
     return y_prob_pred
+
+
+
+def run_iteration_y_pred(i, sample, model_infer, test_var):
+    sample = sample.drop(labels = [test_var])
+    sample_dict = sample.to_dict() 
+    q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
+
+    result = (query2df(q_sample, verbose = 0)["p"][1]).round(7)
+
+    print(result)
+
+    return result 
