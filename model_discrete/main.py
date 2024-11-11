@@ -6,16 +6,43 @@ from pgmpy.models import BayesianNetwork
 
 from pgmpy.estimators import HillClimbSearch, BDsScore
 from pgmpy.factors.discrete import State
+from data_cleaning.cleaning_disc import data_clean_discrete
+
+import pyAgrum as gum
+import pyAgrum.lib.image as gumimage
+import matplotlib.pyplot as plt
+
+from pgmpy.models import BayesianNetwork
+
+from table_statistics import from_counts_to_mean_and_variance, csv_quantiles
+
+from risk_mapping import heatmap_plot_and_save
+from predictive_interval import predictive_interval
+
+from influential_variables import influential_variables
+
+from evaluation_classification import evaluation_classification
+
+import configs.config_CRC as lists_CRC
+
 
 from preprocessing import preprocessing
-import configs.config_CRC as config_CRC
 
+import yaml
+
+dir = os.getcwd()
+with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
+    cfg = yaml.safe_load(file)
+
+
+import pdb
 
 # ---- Read CSV and short preprocessing ---------------------------------
-dir = os.getcwd()
-file_path = os.path.join(dir, "data/df_2012.csv")
+
+file_path = os.path.join(dir, "data/af_clean.csv")
 
 df = pd.read_csv(file_path, index_col = None)
+df = data_clean_discrete(df, selected_year = 2012, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"])
 df = preprocessing(df)
 
 print("Successful data read")
@@ -23,11 +50,9 @@ print("Successful data read")
 
 
 # ---- Structure Learning -----------------------------------------------
-target = config_CRC.inputs["target"]
-blck_lst = config_CRC.structure["black_list"]
-fxd_edges = config_CRC.structure["fixed_edges"]
-
-from pgmpy.estimators import HillClimbSearch, BDsScore
+target = cfg["inputs"]["target"]
+blck_lst = [tuple(item) for item in cfg["black_list"]]  
+fxd_edges = [tuple(item) for item in cfg["fixed_edges"]] 
 
 est = HillClimbSearch(data = df)
 model = est.estimate(scoring_method=BDsScore(df, equivalent_sample_size = 5), fixed_edges=fxd_edges, black_list=blck_lst)
@@ -37,27 +62,23 @@ print("Successful structure learning")
 
 # ----- Save learned model ----------------------------------------------
 
-if not os.path.exists("images"):
-        os.mkdir("images")
+if not os.path.exists(f"images/{target}"):
+        os.mkdir(f"images/{target}")
 
-if not os.path.exists("riskmap_datasets"):
-        os.mkdir("riskmap_datasets")
+if not os.path.exists(f"riskmap_datasets/{target}"):
+        os.mkdir(f"riskmap_datasets/{target}")
 
 # PRIOR NET
-import pyAgrum as gum
-import pyAgrum.lib.image as gumimage
-import matplotlib.pyplot as plt
-
 bn_gum = gum.BayesNet()
 bn_gum.addVariables(list(df.columns))
 bn_gum.addArcs(list(fxd_edges))
 
-path = "images/"
+path = f"images/{target}/"
 file_name = str('cancer_colorrectal_prior') + '.png'
 file_path = os.path.join(path,file_name)
 
 gumimage.export(bn_gum, file_path, size = "20!",
-                nodeColor = config_CRC.node_color,
+                nodeColor = cfg["node_color"],
                             )
 
 # POSTERIOR NET
@@ -69,12 +90,12 @@ arcColor_mine = dict.fromkeys(bn_gum_2.arcs(), 0.3)
 for elem in list(bn_gum.arcs()):
     arcColor_mine[elem] = 1
 
-path = "images/"
+path = f"images/{target}/"
 file_name = str('cancer_colorrectal_learned_bds') + '.png'
 file_path = os.path.join(path,file_name)
 
 gumimage.export(bn_gum_2, file_path, size = "20!",
-                 nodeColor = config_CRC.node_color,
+                 nodeColor = cfg["node_color"],
               
                 cmapArc =  plt.get_cmap("hot"),
                 arcColor= arcColor_mine )
@@ -84,8 +105,6 @@ print("Successful graphic models save")
 
 
 # ---- Parameter estimation ---------------------------------------------
-
-from pgmpy.models import BayesianNetwork
 model_bn = BayesianNetwork(model)
 
 
@@ -97,24 +116,26 @@ for node in card_dict.keys():
 
 # Prior parameters
 size_prior_dataset = len(df) / 10000
+
 pscount_dict = {
-    "Sex": [[df["Sex"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset],[df["Sex"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]], 
-    "Age": [[df["Age"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset],[ df["Age"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset],[df["Age"].value_counts(normalize=True).sort_index()[2] *size_prior_dataset],[df["Age"].value_counts(normalize=True).sort_index()[3] *size_prior_dataset]], #,[1.65 * size_prior_dataset]], 
-    'BMI': [[df["BMI"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]*card_dict["BMI"], [df["BMI"].value_counts(normalize=True).sort_index()[1] *size_prior_dataset]*card_dict['BMI'], [df["BMI"].value_counts(normalize=True).sort_index()[2] *size_prior_dataset]*card_dict['BMI'], [df["BMI"].value_counts(normalize=True).sort_index()[3] *size_prior_dataset]*card_dict['BMI']],
-    'Alcohol': [[df["Alcohol"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]*card_dict["Alcohol"], [df["Alcohol"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict["Alcohol"]],
-    'Smoking': [[df["Smoking"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]*card_dict["Smoking"], [df["Smoking"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict["Smoking"], [df["Smoking"].value_counts(normalize=True).sort_index()[2] * size_prior_dataset]*card_dict["Smoking"]], 
-    'PA': [[df["PA"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict["PA"], [df["PA"].value_counts(normalize=True).sort_index()[2] * size_prior_dataset]*card_dict["PA"]],
-    'SD': [[df["SD"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]*card_dict["SD"], [df["SD"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict["SD"],[df["SD"].value_counts(normalize=True).sort_index()[2] * size_prior_dataset]*card_dict["SD"]],
-    'SES': [[df["SES"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]*card_dict["SES"], [df["SES"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict["SES"], [df["SES"].value_counts(normalize=True).sort_index()[2] * size_prior_dataset]*card_dict["SES"]],
-    'Depression': [[df["Depression"].value_counts(normalize=True).sort_index()[0] *size_prior_dataset]*card_dict['Depression'], [df["Depression"].value_counts(normalize=True).sort_index()[1]*size_prior_dataset]*card_dict['Depression']], 
-    'Anxiety': [[df["Anxiety"].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]* card_dict['Anxiety'], [df["Anxiety"].value_counts(normalize=True).sort_index()[1]* size_prior_dataset]* card_dict['Anxiety']] , 
-    'Diabetes': [[df["Diabetes"].value_counts(normalize=True).sort_index()[0]* size_prior_dataset]*card_dict['Diabetes'], [df["Diabetes"].value_counts(normalize=True).sort_index()[1]* size_prior_dataset]*card_dict['Diabetes']], 
-    'Hypertension': [[df["Hypertension"].value_counts(normalize=True).sort_index()[0]* size_prior_dataset]*card_dict['Hypertension'], [df["Hypertension"].value_counts(normalize=True).sort_index()[1]* size_prior_dataset]*card_dict['Hypertension']] ,
-    'Hyperchol.': [[df["Hyperchol."].value_counts(normalize=True).sort_index()[0] * size_prior_dataset]*card_dict['Hyperchol.'], [df["Hyperchol."].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict['Hyperchol.']] ,  
-    'CRC': [[df["CRC"].value_counts(normalize=True).sort_index()[0]* size_prior_dataset]*card_dict['CRC'], [df["CRC"].value_counts(normalize=True).sort_index()[1] * size_prior_dataset]*card_dict['CRC']] , 
-    }
+    "Sex": [[df["Sex"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset] for i in range(len(np.unique(df["Sex"])))],
+    "Age": [[df["Age"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset] for i in range(len(np.unique(df["Age"])))],
+    'BMI': [[df["BMI"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["BMI"] for i in range(len(np.unique(df["BMI"])))],
+    'Alcohol': [[df["Alcohol"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Alcohol"] for i in range(len(np.unique(df["Alcohol"])))],
+    'Smoking': [[df["Smoking"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Smoking"] for i in range(len(np.unique(df["Smoking"])))],
+    'PA': [[df["PA"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["PA"] for i in range(len(np.unique(df["PA"])))],
+    'SD': [[df["SD"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["SD"] for i in range(len(np.unique(df["SD"])))],
+    'SES': [[df["SES"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["SES"] for i in range(len(np.unique(df["SES"])))],
+    'Depression': [[df["Depression"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Depression"] for i in range(len(np.unique(df["Depression"])))],
+    'Anxiety': [[df["Anxiety"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Anxiety"] for i in range(len(np.unique(df["Anxiety"])))],
+    'Diabetes': [[df["Diabetes"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Diabetes"] for i in range(len(np.unique(df["Diabetes"])))],
+    'Hypertension': [[df["Hypertension"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Hypertension"] for i in range(len(np.unique(df["Hypertension"])))],
+    'Hyperchol': [[df["Hyperchol"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Hyperchol"] for i in range(len(np.unique(df["Hyperchol"])))],
+    'CRC': [[df["CRC"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["CRC"] for i in range(len(np.unique(df["CRC"])))],
+}
 
 
+# Parameter estimation
 model_bn = BayesianNetwork(model)
 
 from parameter_estimation import prior_update_iteration
@@ -126,7 +147,6 @@ print("Successful parameter estimation")
 
 
 # ---- Save model statistics of interest (90% posterior predictive interval) -----
-from table_statistics import from_counts_to_mean_and_variance, csv_quantiles
 
 if not os.path.exists("bounds"):
         os.mkdir("bounds")
@@ -140,27 +160,25 @@ print("Successful statistics save")
 
 
 # ---- Risk mapping -----------------------------------------------------
-from risk_mapping import heatmap_plot_and_save
-from predictive_interval import predictive_interval
 
-col_var = config_CRC.pointwise_risk_mapping["col_var"]
-row_var = config_CRC.pointwise_risk_mapping["row_var"]
+col_var = cfg["pointwise_risk_mapping"]["col_var"]
+row_var = cfg["pointwise_risk_mapping"]["row_var"]
 
-heatmap_plot_and_save(df, model_bn, col_var, row_var)
+heatmap_plot_and_save(df, model_bn, target, col_var, row_var)
 
 
 # If calculate interval = True, an approximation of the posterior predictive intervals will be 
 # by sampling. However, it is a task that requires relatively large computation and time 
 # resources, so we encourage to use the example case available.
 
-calculate_interval = config_CRC.inputs["calculate_interval"]
+calculate_interval = cfg["inputs"]["calculate_interval"]
 if calculate_interval:
-    predictive_interval(model_bn, col_var, row_var, path_to_data = "interval_df/")
+    predictive_interval(model_bn, col_var, target, row_var, path_to_data = "interval_df/")
 
-col_var = config_CRC.interval_risk_mapping["col_var"]
-row_var = config_CRC.interval_risk_mapping["row_var"]
+col_var = cfg["interval_risk_mapping"]["col_var"]
+row_var = cfg["interval_risk_mapping"]["row_var"]
 
-heatmap_plot_and_save(df, model_bn, col_var, row_var, interval = True)
+heatmap_plot_and_save(df, model_bn, target, col_var, row_var, interval = True)
 
 print("Successful risk mapping")
 
@@ -169,12 +187,11 @@ print("Successful risk mapping")
 
 
 # ---- Influential variables --------------------------------------------
-from influential_variables import influential_variables
 
 df_pos = df[df[target] == True].copy()
 
 # Increase the n_random_trials to get meaningful results.
-heatmap_data = influential_variables(data=df_pos, target=target, model_bn = model_bn, n_random_trials = config_CRC.inputs["n_random_trials"])
+heatmap_data = influential_variables(data=df_pos, target=target, model_bn = model_bn, n_random_trials = cfg["inputs"]["n_random_trials"])
 
 print("Successful influential variables")
 # -----------------------------------------------------------------------
@@ -182,12 +199,13 @@ print("Successful influential variables")
 
 
 # ---- Evaluation of the model ------------------------------------------
-from evaluation_classification import evaluation_classification
 
-df_remaining = pd.read_csv("data/df_2016.csv")
-df_remaining = preprocessing(df_remaining)
+file_path = os.path.join(dir, "data/af_clean.csv")
+df_test = pd.read_csv(file_path, index_col = None)
+df_test = data_clean_discrete(df_test, selected_year = 2016, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"])
+df_test = preprocessing(df_test)
 
-evaluation_classification(df_remaining, model_bn)
+evaluation_classification(df_test, model_bn)
 
 print("Successful evaluation of the model")
 # -----------------------------------------------------------------------

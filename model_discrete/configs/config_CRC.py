@@ -1,4 +1,17 @@
+data_cleaning = {
+    "tipo_de_cancer": "cancer_colorrectal",
+}
+
+inputs = {
+    "target": "CRC",
+    "calculate_interval": False,
+    "n_random_trials": 50,
+
+}
+
+
 structure = {
+
     "black_list" : [
                     ('Age', 'Sex'),
                     ('BMI', 'Sex'),
@@ -84,3 +97,32 @@ structure = {
                     ('SES', 'PA'),
         ]
 }
+
+
+node_color = {'Age': 0.3,
+                'Sex': 0.3,
+                'BMI': 0.1,
+                'Alcohol': 0.1,
+                'Smoking': 0.1,
+                'PA': 0.1,
+                'Depression': 0.1,
+                'Anxiety': 0.1,
+                'Diabetes': 0.2,
+                'Hypertension': 0.2,
+                'Hyperchol.': 0.2,
+                'SD': 0.1,
+                'SES': 0.3,
+                'CRC': 0.4}
+
+
+pointwise_risk_mapping = {
+    "col_var": "Age",
+    "row_var": "BMI"
+}
+
+interval_risk_mapping = {
+    "col_var": "Age",
+    "row_var": "BMI"
+}
+
+interval_path = {'path': "prueba22nov/"}

@@ -10,7 +10,11 @@ from pgmpy.inference import VariableElimination
 
 from query2df import query2df
 
+import os
+import os.path as mkdir
+
 def evaluation_classification(df_test, model_bn, test_var = "CRC"):
+    
 
     model_infer = VariableElimination(model_bn)
 
@@ -52,6 +56,8 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     conf_mat = confusion_matrix(list(df_test[test_var]), y_pred)
     disp = ConfusionMatrixDisplay(conf_mat, display_labels=np.array(sorted(set(df_test[test_var]*1))) )
     disp.plot()
+    plt.savefig(f"images/{test_var}/{test_var}_confusion_matrix.png")
+    plt.close()
 
     brier_score.append(brier_score_loss(list(df_test[test_var]*1), y_prob_pred))
 
@@ -61,6 +67,8 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     prob_true, prob_pred = calibration_curve(list(df_test[test_var]*1), y_prob_pred, n_bins = 20, strategy="quantile")
     disp = CalibrationDisplay(prob_true, prob_pred, y_prob_pred)
     disp.plot(name = test_var)
+    plt.savefig(f"images/{test_var}/{test_var}_calibration_plot.png")
+    plt.close()     
 
     plt.xlim([0, max(max(prob_pred), max(prob_true))])  #CRC: 0.005, Diabetes: 0.25
     plt.ylim([0, max(max(prob_pred), max(prob_true))])
@@ -70,7 +78,8 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
 
     # Show the modified plot
     plt.title(f"Calibration plot for {test_var}")
-    plt.show()
+    plt.savefig(f"images/{test_var}/{test_var}_calibration_plot_zoomed.png")
+    plt.close()
 
     report = classification_report(list(df_test[test_var]*1), y_pred, output_dict=True)
 

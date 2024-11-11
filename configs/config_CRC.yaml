@@ -1,0 +1,121 @@
+cancer_type: cancer_colorrectal
+cancer_renamed: &cancer CRC
+
+inputs: 
+    target: *cancer
+    calculate_interval: False
+    n_random_trials: 5 
+
+node_color:
+    Age: 0.3
+    Sex: 0.3
+    BMI: 0.1
+    Alcohol: 0.1
+    Smoking: 0.1
+    PA: 0.1
+    Depression: 0.1
+    Anxiety: 0.1
+    Diabetes: 0.2
+    Hypertension: 0.2
+    Hyperchol: 0.2
+    SD: 0.1
+    SES: 0.3
+    *cancer: 0.4
+
+pointwise_risk_mapping :
+    col_var: Age
+    row_var: BMI
+
+interval_risk_mapping :
+    col_var: Age
+    row_var: BMI
+
+interval_path : 
+    path: "prueba22nov/"
+
+
+
+black_list:
+    - ['Age', 'Sex']
+    - ['BMI', 'Sex']
+    - ['PA', 'Sex']
+    - ['Alcohol', 'Sex']
+    - ['Smoking', 'Sex']
+    - ['SD', 'Sex']
+    - ['Diabetes', 'Sex']
+    - ['Hypertension', 'Sex']
+    - ['Hyperchol', 'Sex']
+    - ['Depression', 'Sex']
+    - ['Anxiety', 'Sex']
+    - [*cancer, 'Sex']
+    - ['SES', 'Sex'] 
+
+    - ['Sex', 'Age']
+    - ['BMI', 'Age']
+    - ['PA', 'Age']
+    - ['Alcohol', 'Age']
+    - ['Smoking', 'Age']
+    - ['SD', 'Age']
+    - ['Diabetes', 'Age']
+    - ['Hypertension', 'Age']
+    - ['Hyperchol', 'Age']
+    - ['Depression', 'Age']
+    - ['Anxiety', 'Age']
+    - [*cancer, 'Age']
+    - ['SES', 'Age']
+
+    - ['BMI', 'SES']
+    - ['PA', 'SES']
+    - ['Alcohol', 'SES']
+    - ['Smoking', 'SES']
+    - ['SD', 'SES']
+    - ['Diabetes', 'SES']
+    - ['Hypertension', 'SES']
+    - ['Hyperchol', 'SES']
+    - ['Depression', 'SES']
+    - ['Anxiety', 'SES']
+    - [*cancer, 'SES']
+
+
+
+fixed_edges:
+    - ['Sex', 'Anxiety']
+    - ['Sex', 'Depression']
+    - ['Sex', *cancer]
+
+    - ['Age', *cancer]
+    - ['Age', 'Diabetes']
+    - ['Age', 'SD'] 
+    - ['Age', 'Smoking'] 
+    - ['Age', 'Hypertension'] 
+    - ['Age', 'BMI'] 
+        
+    - ['BMI', 'Diabetes'] 
+    - ['BMI', 'Hyperchol'] 
+    - ['BMI', 'Hypertension'] 
+
+    - ['Alcohol', *cancer]
+    - ['Alcohol', 'Hypertension']
+    - ['Alcohol', 'Hyperchol']
+
+    - ['Smoking', *cancer] 
+    - ['Smoking', 'Hyperchol']
+    - ['Smoking', 'Hypertension'] 
+
+    - ['PA', 'Diabetes'] 
+    - ['PA', 'Hyperchol'] 
+    - ['PA', 'Hypertension'] 
+    - ['PA', 'BMI']
+
+    - ['Diabetes', *cancer] 
+    - ['Diabetes', 'Hypertension']
+
+    - ['Hypertension', *cancer] 
+
+    - ['Hyperchol', *cancer]
+
+    - ['SD', 'PA']
+    - ['SD', 'Anxiety']
+    - ['Anxiety', 'Hypertension']
+
+    - ['SES', 'PA']

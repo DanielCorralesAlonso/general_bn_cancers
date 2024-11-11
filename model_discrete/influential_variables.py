@@ -10,7 +10,7 @@ def influential_variables(data, target, model_bn, n_random_trials = 50):
     model_infer = VariableElimination(model_bn)
 
     data = data.reset_index(drop=True)
-    ordered_variables = ["Sex","Age", "SD", "SES", "PA", "Depression", "Smoking", "BMI","Alcohol","Anxiety", "Diabetes", "Hyperchol.", "Hypertension"]
+    ordered_variables = ["Sex","Age", "SD", "SES", "PA", "Depression", "Smoking", "BMI","Alcohol","Anxiety", "Diabetes", "Hyperchol", "Hypertension"]
 
     dict_impact_patient = dict.fromkeys(list(range(len(data))))
 
@@ -87,9 +87,11 @@ def influential_variables(data, target, model_bn, n_random_trials = 50):
     heatmap_data.dropna(inplace=True) # Remove CRC row
 
     plt.figure(figsize=(2,8))
+    plt.tight_layout()
     ax = sns.heatmap(heatmap_data, cmap='RdBu_r', annot=True, fmt='.1f', linewidths=1, center = 0)
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0, ha='right')
     
-    plt.savefig('images/influential_variables.png')
+    plt.savefig(f'images/{target}/influential_variables.png')
+    plt.close()
 
     return heatmap_data
