@@ -80,8 +80,7 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     prob_true, prob_pred = calibration_curve(list(df_test[test_var]*1), y_prob_pred, n_bins = 20, strategy="quantile")
     disp = CalibrationDisplay(prob_true, prob_pred, y_prob_pred)
     disp.plot(name = test_var)
-    plt.savefig(f"images/{test_var}/{test_var}_calibration_plot.png")
-    plt.close()     
+    plt.savefig(f"images/{test_var}/{test_var}_calibration_plot.png")    
 
     plt.xlim([0, max(max(prob_pred), max(prob_true))])  #CRC: 0.005, Diabetes: 0.25
     plt.ylim([0, max(max(prob_pred), max(prob_true))])

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
-os.environ["NUMEXPR_MAX_THREADS"] = "64"
+# os.environ["NUMEXPR_MAX_THREADS"] = "64"
 
 
 from pgmpy.inference import ApproxInference, VariableElimination
@@ -10,7 +10,7 @@ from pgmpy.factors.discrete import State
 from query2df import query2df
 
 
-def predictive_interval(model_bn, col_var, row_var, n_samples = 25000 , q_length = 40, target_variable = "CRC", path_to_data = "interval_df"):
+def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length = 100, target_variable = "CRC", path_to_data = "interval_df"):
     if not os.path.exists(path_to_data):
         os.mkdir(path_to_data)
     

@@ -1,5 +1,5 @@
-cancer_type: cancer_prostata
-cancer_renamed: &cancer ProstateCancer
+cancer_type: cancer_ovario
+cancer_renamed: &cancer OvarianCancer
 
 inputs: 
     target: *cancer

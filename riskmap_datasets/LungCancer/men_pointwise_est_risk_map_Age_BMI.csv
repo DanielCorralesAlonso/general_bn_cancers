@@ -1,0 +1,5 @@
+,age_2_young,age_3_young_adult,age_4_adult,age_5_old_adult
+bmi_1_underweight,-0.85,-1.017,0.031,1.436
+bmi_2_normal,-0.831,-1.008,0.188,0.927
+bmi_3_overweight,-0.831,-0.858,0.312,0.965
+bmi_4_obese,-0.929,-0.625,0.386,1.103

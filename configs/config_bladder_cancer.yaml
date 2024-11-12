@@ -1,10 +1,11 @@
-cancer_type: cancer_colorrectal
-cancer_renamed: CRC
+cancer_type: "cancer_vejiga/vu"
+cancer_renamed: &cancer BladderCancer
 
 inputs: 
-    target: CRC
+    target: *cancer
     calculate_interval: False
-    n_random_trials: 50 
+    n_random_trials: 100
+    max_workers: 6
 
 node_color:
     Age: 0.3
@@ -17,10 +18,10 @@ node_color:
     Anxiety: 0.1
     Diabetes: 0.2
     Hypertension: 0.2
-    Hyperchol.: 0.2
+    Hyperchol: 0.2
     SD: 0.1
     SES: 0.3
-    CRC: 0.4
+    *cancer: 0.4
 
 pointwise_risk_mapping :
     col_var: Age
@@ -44,10 +45,10 @@ black_list:
     - ['SD', 'Sex']
     - ['Diabetes', 'Sex']
     - ['Hypertension', 'Sex']
-    - ['Hyperchol.', 'Sex']
+    - ['Hyperchol', 'Sex']
     - ['Depression', 'Sex']
     - ['Anxiety', 'Sex']
-    - ['CRC', 'Sex']
+    - [*cancer, 'Sex']
     - ['SES', 'Sex'] 
 
     - ['Sex', 'Age']
@@ -58,10 +59,10 @@ black_list:
     - ['SD', 'Age']
     - ['Diabetes', 'Age']
     - ['Hypertension', 'Age']
-    - ['Hyperchol.', 'Age']
+    - ['Hyperchol', 'Age']
     - ['Depression', 'Age']
     - ['Anxiety', 'Age']
-    - ['CRC', 'Age']
+    - [*cancer, 'Age']
     - ['SES', 'Age']
 
     - ['BMI', 'SES']
@@ -71,19 +72,19 @@ black_list:
     - ['SD', 'SES']
     - ['Diabetes', 'SES']
     - ['Hypertension', 'SES']
-    - ['Hyperchol.', 'SES']
+    - ['Hyperchol', 'SES']
     - ['Depression', 'SES']
     - ['Anxiety', 'SES']
-    - ['CRC', 'SES']
+    - [*cancer, 'SES']
 
 
 
 fixed_edges:
     - ['Sex', 'Anxiety']
     - ['Sex', 'Depression']
-    - ['Sex', 'CRC']
+    - ['Sex', *cancer]
 
-    - ['Age', 'CRC']
+    - ['Age', *cancer]
     - ['Age', 'Diabetes']
     - ['Age', 'SD'] 
     - ['Age', 'Smoking'] 
@@ -91,28 +92,29 @@ fixed_edges:
     - ['Age', 'BMI'] 
         
     - ['BMI', 'Diabetes'] 
-    - ['BMI', 'Hyperchol.'] 
+    - ['BMI', 'Hyperchol'] 
     - ['BMI', 'Hypertension'] 
 
-    - ['Alcohol', 'CRC']
+    - ['Alcohol', *cancer]
     - ['Alcohol', 'Hypertension']
-    - ['Alcohol', 'Hyperchol.']
+    - ['Alcohol', 'Hyperchol']
 
-    - ['Smoking', 'CRC'] 
-    - ['Smoking', 'Hyperchol.']
+    - ['Smoking', *cancer] 
+    - ['Smoking', 'Hyperchol']
     - ['Smoking', 'Hypertension'] 
 
     - ['PA', 'Diabetes'] 
-    - ['PA', 'Hyperchol.'] 
+    - ['PA', 'Hyperchol'] 
     - ['PA', 'Hypertension'] 
     - ['PA', 'BMI']
+    - ['PA', *cancer] # prueba
 
-    - ['Diabetes', 'CRC'] 
+    - ['Diabetes', *cancer] 
     - ['Diabetes', 'Hypertension']
 
-    - ['Hypertension', 'CRC'] 
+    - ['Hypertension', *cancer] 
 
-    - ['Hyperchol.', 'CRC']
+    - ['Hyperchol', *cancer]
 
     - ['SD', 'PA']
     - ['SD', 'Anxiety']

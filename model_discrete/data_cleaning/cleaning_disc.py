@@ -83,10 +83,10 @@ def unique_patient(df, cancer_type):
     i = 0
     for id in df["fpi"]:
         fecha = df["fecha_reco"][i]
-        crc = df[cancer_type][i]
+        cancer = df[cancer_type][i]
         lst = list(df.loc[i][1:])
-        dict_ids[id] = dict_ids[id] + [[fecha, crc, lst]]
-        # dict_ids[id] = dict_ids[id] + [[fecha,str(crc)]]   #Activar esta linea en caso de querer guardar en formato JSON (no reconoce booleanos)
+        dict_ids[id] = dict_ids[id] + [[fecha, cancer, lst]]
+        # dict_ids[id] = dict_ids[id] + [[fecha,str(cancer)]]   #Activar esta linea en caso de querer guardar en formato JSON (no reconoce booleanos)
         i += 1
 
     ult_fecha_pos = dict.fromkeys(set(df["fpi"]), None)

@@ -8,9 +8,9 @@ from pgmpy.inference import VariableElimination
 from query2df import query2df
 from heatmap import heatmap
 import matplotlib.pyplot as plt
+import pdb
 
 def pointwise_risk_mapping(model_bn, var1, var2, target = "CRC" ):
-
     model_infer = VariableElimination(model_bn)
     
     mod_columns = model_bn.states[var1]
@@ -23,18 +23,18 @@ def pointwise_risk_mapping(model_bn, var1, var2, target = "CRC" ):
     A_hom = model_infer.query(variables = [target], evidence={"Sex": "M"})
     A_muj = model_infer.query(variables = [target], evidence={"Sex": "W"})
 
-
     for Sex in model_bn.states["Sex"]:
         for row in mod_rows:
             for column in mod_columns:
 
                 q = model_infer.query(variables=[target], evidence={"Sex": Sex, var1: column, var2: row})
                 
+                
                 if Sex == "M":
                     df_hom.loc[row,column] = round( np.log(1 - query2df(q, verbose = 0)["p"][0]) - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
                 else:
                     df_muj.loc[row,column] = round( np.log(1 - query2df(q, verbose = 0)["p"][0])  - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
-                    
+       
     return df_hom, df_muj
 
 
@@ -44,9 +44,10 @@ def heatmap_plot_and_save(df, model_bn, target, col_var, row_var, q_length = 40,
     n_colors = 256 # Use 256 colors for the diverging color palette
     palette = sns.color_palette("RdBu_r", n_colors = 256) #sns.diverging_palette(220, 20, center = "dark", n=n_colors)
 
+    # pdb.set_trace()
     if interval:
-        df_hom = pd.read_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}.csv", index_col=[0])
-        df_hom_interval = pd.read_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}_interval.csv", index_col=[0])
+        df_hom = pd.read_csv(f"{path_to_data}/{target}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}.csv", index_col=[0])
+        df_hom_interval = pd.read_csv(f"{path_to_data}/{target}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}_interval.csv", index_col=[0])
 
         df_muj = pd.read_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}.csv", index_col=[0])
         df_muj_interval = pd.read_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}_interval.csv", index_col=[0])
@@ -81,7 +82,7 @@ def heatmap_plot_and_save(df, model_bn, target, col_var, row_var, q_length = 40,
     )
 
     if save:
-        fig.savefig(f"images/{target}/point_risk_map_men_{col_var}_{row_var}.png", bbox_inches='tight')
+        fig.savefig(f"images/{target}/point_risk_map_{target}_men_{col_var}_{row_var}.png", bbox_inches='tight')
         plt.close()
 
     corr = pd.melt(df_muj.reset_index(), id_vars='index') 
@@ -106,7 +107,7 @@ def heatmap_plot_and_save(df, model_bn, target, col_var, row_var, q_length = 40,
     )
 
     if save:
-        fig.savefig(f"images/{target}/point_risk_map_women_{col_var}_{row_var}.png", bbox_inches='tight')
+        fig.savefig(f"images/{target}/point_risk_map_{target}_women_{col_var}_{row_var}.png", bbox_inches='tight')
 
         df_hom.to_csv(f"riskmap_datasets/{target}/men_pointwise_est_risk_map_{col_var}_{row_var}.csv")
         df_muj.to_csv(f"riskmap_datasets/{target}/women_pointwise_est_risk_map_{col_var}_{row_var}.csv")

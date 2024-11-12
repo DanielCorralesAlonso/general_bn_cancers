@@ -30,22 +30,24 @@ from preprocessing import preprocessing
 
 import yaml
 
-dir = os.getcwd()
-with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
-    cfg = yaml.safe_load(file)
 
 
 import pdb
 
-def main(read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True): 
+def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True): 
+        
+        dir = os.getcwd()
+        with open(f'{dir}\configs\{config_file}', 'r') as file:
+            cfg = yaml.safe_load(file)
 
         # ---- Read CSV and short preprocessing ---------------------------------
         if read_df:
+            # pdb.set_trace()
             file_path = os.path.join(dir, "data/af_clean.csv")
 
             df = pd.read_csv(file_path, index_col = None)
             df = data_clean_discrete(df, selected_year = 2012, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"])
-            df = preprocessing(df)
+            df = preprocessing(df, cancer_type = cfg["cancer_renamed"])
 
             print("Successful data read")
         # -----------------------------------------------------------------------
@@ -53,6 +55,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
 
         # ---- Structure Learning -----------------------------------------------
         if structure_learning:
+            # pdb.set_trace()
             target = cfg["inputs"]["target"]
             blck_lst = [tuple(item) for item in cfg["black_list"]]  
             fxd_edges = [tuple(item) for item in cfg["fixed_edges"]] 
@@ -77,7 +80,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
             bn_gum.addArcs(list(fxd_edges))
 
             path = f"images/{target}/"
-            file_name = str('cancer_colorrectal_prior') + '.png'
+            file_name = str(f'{target}_prior') + '.png'
             file_path = os.path.join(path,file_name)
 
             gumimage.export(bn_gum, file_path, size = "20!",
@@ -94,7 +97,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
                 arcColor_mine[elem] = 1
 
             path = f"images/{target}/"
-            file_name = str('cancer_colorrectal_learned_bds') + '.png'
+            file_name = str(f'{target}_learned_bds') + '.png'
             file_path = os.path.join(path,file_name)
 
             gumimage.export(bn_gum_2, file_path, size = "20!",
@@ -109,6 +112,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
 
         # ---- Parameter estimation ---------------------------------------------
         if parameter_estimation:
+            # pdb.set_trace()
             model_bn = BayesianNetwork(model)
 
 
@@ -135,7 +139,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
                 'Diabetes': [[df["Diabetes"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Diabetes"] for i in range(len(np.unique(df["Diabetes"])))],
                 'Hypertension': [[df["Hypertension"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Hypertension"] for i in range(len(np.unique(df["Hypertension"])))],
                 'Hyperchol': [[df["Hyperchol"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["Hyperchol"] for i in range(len(np.unique(df["Hyperchol"])))],
-                'CRC': [[df["CRC"].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict["CRC"] for i in range(len(np.unique(df["CRC"])))],
+                target: [[df[target].value_counts(normalize=True).sort_index().iloc[i] * size_prior_dataset]*card_dict[target] for i in range(len(np.unique(df[target])))],
             }
 
 
@@ -144,7 +148,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
 
             from parameter_estimation import prior_update_iteration
 
-            model_infer, counts_per_year = prior_update_iteration(model_bn, card_dict, pscount_dict = pscount_dict, size_prior_dataset=size_prior_dataset)
+            model_infer, counts_per_year = prior_update_iteration(model_bn, card_dict, pscount_dict = pscount_dict, size_prior_dataset=size_prior_dataset, config_file = config_file)
 
             print("Successful parameter estimation")
             # ----------------------------------------------------------------------
@@ -165,7 +169,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
 
         # ---- Risk mapping -----------------------------------------------------
         if risk_mapping:
-
+            # pdb.set_trace()
             col_var = cfg["pointwise_risk_mapping"]["col_var"]
             row_var = cfg["pointwise_risk_mapping"]["row_var"]
 
@@ -180,10 +184,10 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
             if calculate_interval:
                 predictive_interval(model_bn, col_var, target, row_var, path_to_data = "interval_df/")
 
-            col_var = cfg["interval_risk_mapping"]["col_var"]
-            row_var = cfg["interval_risk_mapping"]["row_var"]
+                col_var = cfg["interval_risk_mapping"]["col_var"]
+                row_var = cfg["interval_risk_mapping"]["row_var"]
 
-            heatmap_plot_and_save(df, model_bn, target, col_var, row_var, interval = True)
+                heatmap_plot_and_save(df, model_bn, target, col_var, row_var, interval = True)
 
             print("Successful risk mapping")
         # -----------------------------------------------------------------------
@@ -192,6 +196,7 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
 
         # ---- Influential variables --------------------------------------------
         if influential_variable_calc:
+            # pdb.set_trace()
             df_pos = df[df[target] == True].copy()
 
             # Increase the n_random_trials to get meaningful results.
@@ -207,21 +212,17 @@ def main(read_df = True, structure_learning = True, save_learned_model = True, p
             file_path = os.path.join(dir, "data/af_clean.csv")
             df_test = pd.read_csv(file_path, index_col = None)
             df_test = data_clean_discrete(df_test, selected_year = 2016, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"])
-            df_test = preprocessing(df_test)
+            df_test = preprocessing(df_test, cancer_type=cfg["cancer_renamed"])
 
-            evaluation_classification(df_test, model_bn)
+            evaluation_classification(df_test, model_bn, test_var = target)
 
             print("Successful evaluation of the model")
         # -----------------------------------------------------------------------
 
 
 if __name__ == "__main__":
-    main(
-        read_df = True, 
-        structure_learning = True, 
-        save_learned_model = True, 
-        parameter_estimation = True, 
-        risk_mapping = False, 
-        influential_variable_calc = False, 
-        evaluation = True
-    )
+    # config_file_list = ["config_CRC.yaml", "config_lung_cancer.yaml", "config_prostate_cancer.yaml", "config_bladder_cancer.yaml", "config_ovarian_cancer.yaml"]
+    config_file_list = ["config_ovarian_cancer.yaml"]
+    for config_file in config_file_list:
+        main(config_file = config_file, read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True)
+    

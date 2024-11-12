@@ -10,13 +10,13 @@ from tqdm import tqdm
 import pdb
 import yaml
 import os
+import gc
 
 dir = os.getcwd()
 with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
     cfg = yaml.safe_load(file)
 
 def influential_variables(data, target, model_bn, n_random_trials = 50):
-    model_infer = VariableElimination(model_bn)
 
     data = data.reset_index(drop=True)
     ordered_variables = ["Sex","Age", "SD", "SES", "PA", "Depression", "Smoking", "BMI","Alcohol","Anxiety", "Diabetes", "Hyperchol", "Hypertension"]
@@ -24,20 +24,23 @@ def influential_variables(data, target, model_bn, n_random_trials = 50):
     dict_impact_patient = dict.fromkeys(list(range(len(data))))
     
     with ProcessPoolExecutor(max_workers=cfg["inputs"]['max_workers']) as executor:
-        futures = [executor.submit(run_iteration, i, model_bn, ordered_variables, target, data, dict_impact_patient, model_infer) for i in range(n_random_trials)]
+        futures = [executor.submit(run_iteration, i, model_bn, ordered_variables, target, data, dict_impact_patient) for i in range(n_random_trials)]
         all_results = []
         for future in tqdm(as_completed(futures), total=n_random_trials, desc="Processing iterations inf vars"):
-            all_results.append(future.result())
-
-    dict_impact_patient_combined = {i: pd.concat([result[i] for result in all_results if i in result], axis=0)
-                                    for i in range(data.shape[0])}
+            # all_results.append(future.result())
+            result = future.result()
+            for key, df in result.items():
+                dict_impact_patient[key] = pd.concat([dict_impact_patient.get(key, pd.DataFrame()), df], axis=0, ignore_index=True)
+            
+            del result, df
+            gc.collect()
 
 
     for i in range(data.shape[0]):
         if i==0:
-            grouped_data = pd.concat([data.iloc[i].rename(index = 'Evidence'), dict_impact_patient_combined[i].replace(0,float('nan')).median(axis = 0).rename('Influence')], axis = 1)
+            grouped_data = pd.concat([data.iloc[i].rename(index = 'Evidence'), dict_impact_patient[i].replace(0,float('nan')).median(axis = 0).rename('Influence')], axis = 1)
         else:
-            grouped_data_aux = pd.concat([data.iloc[i].rename(index = 'Evidence'), dict_impact_patient_combined[i].replace(0,float('nan')).median(axis = 0).rename('Influence')], axis = 1)
+            grouped_data_aux = pd.concat([data.iloc[i].rename(index = 'Evidence'), dict_impact_patient[i].replace(0,float('nan')).median(axis = 0).rename('Influence')], axis = 1)
             grouped_data = pd.concat([grouped_data, grouped_data_aux], axis = 0)
                 
     def combine_categories(row):
@@ -66,7 +69,7 @@ def influential_variables(data, target, model_bn, n_random_trials = 50):
     
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0, ha='right')
     
-    plt.savefig(f'images/{target}/influential_variables.png', bbox_inches='tight')
+    plt.savefig(f'images/{target}/{target}_influential_variables.png', bbox_inches='tight')
     plt.close()
 
     return heatmap_data
@@ -74,8 +77,11 @@ def influential_variables(data, target, model_bn, n_random_trials = 50):
 
 
 
-def run_iteration(n, model_bn, ordered_variables, target, data, dict_impact_patient, model_infer):
+def run_iteration(n, model_bn, ordered_variables, target, data, dict_impact_patient):
 
+    local_dict_impact_patient = {}
+
+    model_infer = VariableElimination(model_bn)
     random.shuffle(ordered_variables)
 
     dropped = list(model_bn.nodes())
@@ -85,8 +91,7 @@ def run_iteration(n, model_bn, ordered_variables, target, data, dict_impact_pati
         else:
             dropped.remove(elem)
     
-    diff_vect = np.zeros((data.shape[0], len(data.iloc[0].drop(labels = dropped).dropna())))
-    crc_sample_aux = np.zeros_like(diff_vect)
+    target_sample_aux = np.zeros((data.shape[0], len(data.iloc[0].drop(labels = dropped).dropna())))
     for i in range(data.shape[0]):
 
         sample = data.iloc[i].drop(labels = dropped).dropna()
@@ -101,29 +106,28 @@ def run_iteration(n, model_bn, ordered_variables, target, data, dict_impact_pati
             sample_aux_dict = sample_aux.to_dict()
             q_sample_aux = model_infer.query(variables=[target], evidence = sample_aux_dict)
 
-            crc_sample_aux[i,j] =  np.log(1 - query2df(q_sample_aux, verbose = 0)["p"][0].copy())
+            target_sample_aux[i,j] =  np.log(1 - query2df(q_sample_aux, verbose = 0)["p"][0].copy())
 
             j += 1
 
         impact_aux = pd.DataFrame(columns=def_variables)
         aux = np.zeros(len(sample))
         
-        
-        for j in range(len(diff_vect[i])):
+        for j in range(len(target_sample_aux[i])):
             if j == 0:
 
-                sample_CRC = model_infer.query(variables=["CRC"])
-                aux[j] = (crc_sample_aux[i,j] - np.log(1 - query2df(sample_CRC, verbose = 0)["p"][0].copy()))   / np.abs(np.log(1 - query2df(sample_CRC, verbose = 0)["p"][0].copy())) * 100
+                sample_target = model_infer.query(variables=[target])
+                aux[j] = (target_sample_aux[i,j] - np.log(1 - query2df(sample_target, verbose = 0)["p"][0].copy()))   / np.abs(np.log(1 - query2df(sample_target, verbose = 0)["p"][0].copy())) * 100
             
                 continue
 
             else:
-                aux[j] = (crc_sample_aux[i,j] - crc_sample_aux[i,j-1])  /  np.abs( crc_sample_aux[i,j-1]) * 100
+                aux[j] = (target_sample_aux[i,j] - target_sample_aux[i,j-1])  /  np.abs( target_sample_aux[i,j-1]) * 100
                                     
                         
         impact_aux = pd.DataFrame([aux], columns = def_variables)
 
-        dict_impact_patient[i] = pd.concat([dict_impact_patient[i], impact_aux], axis = 0)
+        local_dict_impact_patient[i] = pd.concat([local_dict_impact_patient.get(i, pd.DataFrame()), impact_aux], axis=0, ignore_index=True)
 
 
-    return dict_impact_patient
+    return local_dict_impact_patient
