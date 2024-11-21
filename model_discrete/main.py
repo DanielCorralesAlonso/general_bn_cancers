@@ -221,8 +221,8 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
 
 
 if __name__ == "__main__":
-    # config_file_list = ["config_CRC.yaml", "config_lung_cancer.yaml", "config_prostate_cancer.yaml", "config_bladder_cancer.yaml", "config_ovarian_cancer.yaml"]
-    config_file_list = ["config_ovarian_cancer.yaml"]
+    config_file_list = ["config_CRC.yaml", "config_lung_cancer.yaml", "config_prostate_cancer.yaml", "config_bladder_cancer.yaml", "config_ovarian_cancer.yaml"]
+    # config_file_list = ["config_ovarian_cancer.yaml"]
     for config_file in config_file_list:
         main(config_file = config_file, read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True)
     

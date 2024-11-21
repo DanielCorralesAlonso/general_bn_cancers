@@ -25,7 +25,7 @@ node_color:
 
 pointwise_risk_mapping :
     col_var: Age
-    row_var: BMI
+    row_var: PA
 
 interval_risk_mapping :
     col_var: Age

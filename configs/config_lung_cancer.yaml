@@ -25,7 +25,7 @@ node_color:
 
 pointwise_risk_mapping :
     col_var: Age
-    row_var: BMI
+    row_var: PA
 
 interval_risk_mapping :
     col_var: Age
@@ -107,7 +107,7 @@ fixed_edges:
     - ['PA', 'Hyperchol'] 
     - ['PA', 'Hypertension'] 
     - ['PA', 'BMI']
-    # - ['PA', *cancer] # prueba
+    - ['PA', *cancer] # prueba
 
     - ['Diabetes', *cancer] 
     - ['Diabetes', 'Hypertension']
