@@ -5,6 +5,11 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 
+from missforest import MissForest
+
+import time
+import pdb
+
 
 def redefine_imc(df):
     cond = [(df["imc"] < 18.5), ((df["imc"] >= 18.5) & (df["imc"] < 25)), ((df["imc"] >= 25) & (df["imc"] < 30)), (df["imc"] >= 30)]
@@ -32,23 +37,67 @@ def redefine_medical_cond(df):
     df['hipercolesterolemia1'] = np.where((df['colesterol_ldl'] >= 130) | (df['colesterol_hdl'] <= 40) | (df['colesterol'] >= 200), True, df["hipercolesterolemia1"] )
     return df
 
+
+
 def impute_missing_values_iter_imp(df):
 
-    # NOT WORKING YET
+    df_preimp = df[["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol",
+                         "glucosa", "diabetes","fumador", "consumo_alcohol", "condicion_socioeconomica_media"]].copy()
 
-    le = LabelEncoder()
-    df["prov_trab"] = le.fit_transform(df["prov_trab"])
-    df["tipo_reco"] = le.fit_transform(df["tipo_reco"])
-    df["fumador"] = le.fit_transform(df["fumador"])
-    df["consumo_alcohol"] = le.fit_transform(df["consumo_alcohol"])
+    # Manually label encode the columns of interest
 
-    imputer = IterativeImputer(max_iter = 20, random_state = 42, sample_posterior=True)
-    df_imputed = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+    df_preimp["consumo_alcohol"] = df_preimp["consumo_alcohol"].map({"no":0, "esporadico":1, "fin de semana":2, "exconsumidor":3, "habitual":4, "dependiente":5})
+    df_preimp["fumador"] = df_preimp["fumador"].map({"no fumador": 0, "ex-fumador":1, "fumador":2})
+    df_preimp["af"] = df_preimp["af"].map({ 1:1, 2:2, 3:3,4:4,4.1:4, 4.2:4, 4.3:4, 5:5})
+
+    imputer = IterativeImputer(max_iter = 50, random_state = 42, sample_posterior=False) # Uses Bayesian Ridge Regression as estimator
+    df_imputed = pd.DataFrame(imputer.fit_transform(df_preimp), columns=df_preimp.columns)
+
+    df_imputed["consumo_alcohol"] = df_imputed["consumo_alcohol"].round()
+    df_imputed["fumador"] = df_imputed["fumador"].round()
+    df_imputed["af"] = df_imputed["af"].round()
     
-    return df_imputed
+    
+    # Now the inverse mapping
+    df_imputed["consumo_alcohol"] = df_imputed["consumo_alcohol"].map({0:"no", 1:"esporadico", 2:"fin de semana", 3:"exconsumidor", 4:"habitual", 5:"dependiente"})
+    df_imputed["fumador"] = df_imputed["fumador"].map({0:"no fumador", 1:"ex-fumador", 2:"fumador"})
+    # df_imputed["af"] = df_imputed["af"].map({1:1, 2:2, 3:3, 4:4, 5:4.1, 6:4.2, 7:4.3, 8:5})
+
+    df[["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol",
+        "glucosa", "diabetes","fumador", "consumo_alcohol", "condicion_socioeconomica_media"]] = df_imputed[["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol",
+                                                                                                            "glucosa", "diabetes","fumador", "consumo_alcohol", "condicion_socioeconomica_media"]].copy()
+    
+    return df
+
+def impute_missing_values_missForest(df):
+
+    selected_variables_to_impute = ["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol", "duracion_sueño",
+                         "glucosa", "diabetes","fumador", "consumo_alcohol", "condicion_socioeconomica_media"]
+
+    df_preimp = df[selected_variables_to_impute].copy()
+
+    # Manually label encode the columns of interest
+
+    df_preimp["consumo_alcohol"] = df_preimp["consumo_alcohol"].map({"no":0, "esporadico":1, "fin de semana":2, "exconsumidor":3, "habitual":4, "dependiente":5})
+    df_preimp["fumador"] = df_preimp["fumador"].map({"no fumador": 0, "ex-fumador":1, "fumador":2})
+    df_preimp["af"] = df_preimp["af"].map({ 1:1, 2:2, 3:3,4:4,4.1:4, 4.2:4, 4.3:4, 5:5})
+
+    imputer = MissForest(max_iter = 10)
+    df_imputed = pd.DataFrame(imputer.fit_transform(df_preimp, categorical = ['año_reco', 'af', 'duracion_sueño',
+                                        'diabetes', 'fumador', 'consumo_alcohol'] ))
+
+    # Now the inverse mapping
+    df_imputed["consumo_alcohol"] = df_imputed["consumo_alcohol"].map({0:"no", 1:"esporadico", 2:"fin de semana", 3:"exconsumidor", 4:"habitual", 5:"dependiente"})
+    df_imputed["fumador"] = df_imputed["fumador"].map({0:"no fumador", 1:"ex-fumador", 2:"fumador"})
+    # df_imputed["af"] = df_imputed["af"].map({1:1, 2:2, 3:3, 4:4, 5:4.1, 6:4.2, 7:4.3, 8:5})
+
+    df[selected_variables_to_impute] = df_imputed[selected_variables_to_impute].copy()
+    
+    return df
+
 
 def impute_missing_values_knn(df):
-    
+    t1 = time.time()
     # NOT WORKING YET
 
     df_preimp = df[["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol",
@@ -58,7 +107,7 @@ def impute_missing_values_knn(df):
 
     df_preimp["consumo_alcohol"] = df_preimp["consumo_alcohol"].map({"no":0, "esporadico":1, "fin de semana":2, "exconsumidor":3, "habitual":4, "dependiente":5})
     df_preimp["fumador"] = df_preimp["fumador"].map({"no fumador": 0, "ex-fumador":1, "fumador":2})
-    df_preimp["af"] = df_preimp["af"].map({ 1:1, 2:2, 3:3,4:4,4.1:5, 4.2:6, 4.3:7, 5:8})
+    df_preimp["af"] = df_preimp["af"].map({ 1:1, 2:2, 3:3,4:4,4.1:4, 4.2:4, 4.3:4, 5:5})
 
     imputer = KNNImputer(n_neighbors = 5)
     df_imputed = pd.DataFrame(imputer.fit_transform(df_preimp), columns=df_preimp.columns)
@@ -66,14 +115,14 @@ def impute_missing_values_knn(df):
     # Now the inverse mapping
     df_imputed["consumo_alcohol"] = df_imputed["consumo_alcohol"].map({0:"no", 1:"esporadico", 2:"fin de semana", 3:"exconsumidor", 4:"habitual", 5:"dependiente"})
     df_imputed["fumador"] = df_imputed["fumador"].map({0:"no fumador", 1:"ex-fumador", 2:"fumador"})
-    df_imputed["af"] = df_imputed["af"].map({1:1, 2:2, 3:3, 4:4, 5:4.1, 6:4.2, 7:4.3, 8:5})
+    # df_imputed["af"] = df_imputed["af"].map({1:1, 2:2, 3:3, 4:4, 5:4.1, 6:4.2, 7:4.3, 8:5})
 
     df[["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol",
         "glucosa", "diabetes","fumador", "consumo_alcohol", "condicion_socioeconomica_media"]] = df_imputed[["año_reco", "peso", "talla", "imc", "af", "tad", "tas", "colesterol",
                                                                                                             "glucosa", "diabetes","fumador", "consumo_alcohol", "condicion_socioeconomica_media"]].copy()
-    
+    t2 = time.time()
+    print("Time elapsed: ", t2-t1, " seconds")
     return df
-
 
 def unique_patient(df, cancer_type):
 
@@ -109,7 +158,6 @@ def unique_patient(df, cancer_type):
 
     return df_select
 
-
 def redefine_ses(df):
     # Discretize continous variable. The approach is very naive. We should use a more sophisticated method in the future.
 
@@ -124,21 +172,26 @@ def redefine_ses(df):
 
     return df
 
-
 def redefine_pa(df):
+
+    # Meething WHO guidelines for PA
     '''arr = np.where(df['af'] < 4, 1, 2)
 
     df.loc[arr == 1, ["af_2"]] = "PA_1"
     df.loc[arr == 2, ["af_2"]] = "PA_2"'''
-    # rename cells from 1 to "PA_1"
-    # rename cells from 2 to "PA_2"
-    # rename cells from 3 to "PA_3"
 
+    # Inactive, insufficiently active, active
     df.loc[df['af'] == 1.0, "PA"] = "PA_1"
+    df.loc[(df['af'] == 2.0) | (df['af'] == 3.0), "PA"] = "PA_2"
+    df.loc[(df['af'] >= 4.0), "PA"] = "PA_3"
+
+
+    # Original database categories
+    '''df.loc[df['af'] == 1.0, "PA"] = "PA_1"
     df.loc[df['af'] == 2.0, "PA"] = "PA_2"
     df.loc[df['af'] == 3.0, "PA"] = "PA_3"
     df.loc[(df['af'] >= 4.0) & (df['af'] < 5), "PA"] = "PA_4"
-    df.loc[(df['af'] == 5.0), "PA"] = "PA_5"
+    df.loc[(df['af'] == 5.0), "PA"] = "PA_5"'''
 
 
     return df
@@ -151,12 +204,30 @@ def redefine_alcohol(df):
     df.loc[df['consumo_alcohol'] == 'no', ["consumo_alcohol"]] = "no"
     df.loc[df['consumo_alcohol'] == 'esporadico',["consumo_alcohol"]] = "low"
     df.loc[df['consumo_alcohol'] == 'fin de semana', ["consumo_alcohol"]] = "low"
-    df.loc[df['consumo_alcohol'] == 'exconsumidor', ["consumo_alcohol"]] = "high"
+    df.loc[df['consumo_alcohol'] == 'exconsumidor', ["consumo_alcohol"]] = "high" # Some ambiguity here, could be low. If there is time, we should try both options.
     df.loc[df['consumo_alcohol'] == 'habitual',["consumo_alcohol"]] = "high"
     df.loc[df['consumo_alcohol'] == 'dependiente', ["consumo_alcohol"]] = "high"
 
     return df
 
+def remove_patients_other_cancers(df, cancer_type):
+    # Remove
+    cancer_list = [
+             'cancer_cabeza_y_cuello', 'cancer_digestivo',
+       'cancer_colorrectal', 'cancer_higado', 'cancer_panc/vb', 'cancer_otros',
+       'cancer_hematologico', 'cancer_pulmon', 'cancer_hueso/pb',
+       'cancer_piel', 'cancer_mama', 'cancer_ovario', 'cancer_prostata',
+       'cancer_vejiga/vu', 'cancer_rinon', 'cancer_cerebral',
+       'cancer_endocrino'
+    ]
+
+    cancer_list.remove(cancer_type)
+
+    for cancer in cancer_list:
+        df = df[df[cancer] == False].copy()
+    
+    df.reset_index(inplace=True, drop = True)
+    return df
 
 def rename_vars(df,cancer_type, cancer_renamed):
 
@@ -193,47 +264,61 @@ def rename_vars(df,cancer_type, cancer_renamed):
     
     df = df[(df["Age"] != "age_1_very_young") & (df["Age"] != "age_6_elderly")].copy()
 
-    return df
+    df.dropna(subset=["Sex"], inplace = True)
+    df.reset_index(inplace = True, drop = True)
 
+    return df
 
 def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed = "CRC", selected_year = 2012):
 
+    print("Dropping duplicates")
     df = df.drop_duplicates(subset = ["fpi", "fecha_reco"], ignore_index = True).copy()
-
+    
+    print("Dropping outliers")
     df = df[df["outlier"] == False].reset_index(drop = True).copy()
-
+    
+    print("Selecting year")
     df = df[df["año_reco"] == selected_year].reset_index(drop = True).copy()
+    
+    # Impute missing values.
+    print("Imputing missing values")
+    df = impute_missing_values_missForest(df)
 
     # Redefine variables. Discretize continuous variables.
-
+    print("Redefining variables")
     df = redefine_imc(df)
     df = redefine_age(df)
     df = redefine_medical_cond(df)
-
-
-    # Impute missing values.
-    # df = impute_missing_values_knn(df)
+    
 
     # For now we will drop the missing values.
-    df.dropna(subset=["sexo", "af","fumador", "consumo_alcohol",
+    '''df.dropna(subset=["sexo", "af","fumador", "consumo_alcohol",
                     "duracion_sueño", "condicion_socioeconomica_media"],
                     inplace = True)
-    df.reset_index(inplace=True, drop = True)
+    df.reset_index(inplace=True, drop = True)'''
 
     # Should we remove patients with other cancers?
+    print("Removing patients with other cancers")
+    print("Before: ", len(df))
+    df = remove_patients_other_cancers(df, cancer_type)
+    print("After: ", len(df))
 
     # Filter by unique patient
-    # df = unique_patient(df, cancer_type)
+    print("Filtering by unique patient")
+    print("Before: ", len(df))
+    df = unique_patient(df, cancer_type)
+    print("After: ", len(df))
 
     # Redefine variables
+    print("Redefining variables")
     df = redefine_ses(df)
-    df = redefine_pa(df)
     df = redefine_alcohol(df)
-
+    df = redefine_pa(df)
     df = rename_vars(df,cancer_type, cancer_renamed)
 
     
-    
+    print("Data cleaning finished")
+    print("Final shape: ", df.shape)
     return df
 
 
