@@ -23,7 +23,7 @@ dir = os.getcwd()
 with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
     cfg = yaml.safe_load(file)
 
-def evaluation_classification(df_test, model_bn, test_var = "CRC"):
+def evaluation_classification(df_test, model_bn, test_var = "CRC", logger = None):
     
 
     model_infer = VariableElimination(model_bn)
@@ -54,7 +54,7 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
     gmeans = gmean( [tpr, 1-fpr], axis = 0, weights=[[1],[1]])
     # locate the index of the largest g-mean
     ix = np.argmax(gmeans)
-    print('Best Threshold=%f, G-Mean=%.3f' % (thresholds[ix], gmeans[ix]))
+    logger.info(f'Best Threshold= {thresholds[ix]}, G-Mean= {gmeans[ix]}')
 
     g_means_iter.append(gmeans[ix])
 
@@ -63,7 +63,7 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
 
     beta = 2
     fbeta = fbeta_score(list(df_test[test_var]*1), y_pred, beta=beta)
-    print(f"F_{beta} score =", fbeta)
+    logger.info(f"F_{beta} score = {fbeta}")
 
 
     conf_mat = confusion_matrix(list(df_test[test_var]), y_pred)
@@ -74,7 +74,7 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
 
     brier_score.append(brier_score_loss(list(df_test[test_var]*1), y_prob_pred))
 
-    print("Brier loss:", brier_score_loss(list(df_test[test_var]*1), y_prob_pred))
+    logger.info(f"Brier loss: {brier_score_loss(list(df_test[test_var]*1), y_prob_pred)}")
 
 
     prob_true, prob_pred = calibration_curve(list(df_test[test_var]*1), y_prob_pred, n_bins = 10, strategy="quantile")
@@ -95,27 +95,27 @@ def evaluation_classification(df_test, model_bn, test_var = "CRC"):
 
     report = classification_report(list(df_test[test_var]*1), y_pred, output_dict=True)
 
-    print(classification_report(list(df_test[test_var]*1), y_pred))
+    logger.info(classification_report(list(df_test[test_var]*1), y_pred))
 
     sensitivity_iter.append(report["1"]["recall"])
     specificity_iter.append(report["0"]["recall"])
         
 
-    print("\nAverage G-Mean: ", np.mean(g_means_iter), '+/- ', np.std(g_means_iter))
-    print("\nAverage Sensitivity: ", np.mean(sensitivity_iter), '+/- ', np.std(sensitivity_iter))
-    print("\nAverage Specificity: ", np.mean(specificity_iter), '+/- ', np.std(specificity_iter))
+    logger.info(f"\nAverage G-Mean:  {np.mean(g_means_iter)} +/-  {np.std(g_means_iter)}")
+    logger.info(f"\nAverage Sensitivity: {np.mean(sensitivity_iter)} +/-  {np.std(sensitivity_iter)}")
+    logger.info(f"\nAverage Specificity:  {np.mean(specificity_iter)} +/-  {np.std(specificity_iter)}")
 
     return y_prob_pred
 
 
 
-def run_iteration_y_pred(i, sample, model_infer, test_var):
+'''def run_iteration_y_pred(i, sample, model_infer, test_var, logger = None):
     sample = sample.drop(labels = [test_var])
     sample_dict = sample.to_dict() 
     q_sample = model_infer.query(variables=[test_var], evidence = sample_dict)
 
     result = (query2df(q_sample, verbose = 0)["p"][1]).round(7)
 
-    print(result)
+    logger.info(result)
 
-    return result 
+    return result '''

@@ -18,6 +18,7 @@ from table_statistics import from_counts_to_mean_and_variance, csv_quantiles
 
 from risk_mapping import heatmap_plot_and_save
 from predictive_interval import predictive_interval
+from parameter_estimation import prior_update_iteration
 
 from influential_variables import influential_variables
 
@@ -25,17 +26,46 @@ from evaluation_classification import evaluation_classification
 
 import configs.config_CRC as lists_CRC
 
-
 from preprocessing import preprocessing
-
 import yaml
 
-
+import logging
+import datetime 
 
 import pdb
 
-def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True): 
+def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True, log_dir = ""): 
         
+        
+
+        log_filename = os.path.join(log_dir, "".join(config_file.split('.')[0].split('_')[1:]) + ".log")
+
+        # Create a custom logger
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)  # Set the minimum logging level
+
+        # Create handlers for file and console
+        file_handler = logging.FileHandler(log_filename)  # Logs to file
+        console_handler = logging.StreamHandler()  # Logs to console
+
+        # Set the logging level for both handlers
+        file_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.INFO)
+
+        # Define the formatter for logs
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+        # Add the formatter to the handlers
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        # Add handlers to the logger
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+
+
+
         dir = os.getcwd()
         with open(f'{dir}\configs\{config_file}', 'r') as file:
             cfg = yaml.safe_load(file)
@@ -46,10 +76,10 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
             file_path = os.path.join(dir, "data/af_clean.csv")
 
             df = pd.read_csv(file_path, index_col = None)
-            df = data_clean_discrete(df, selected_year = 2012, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"])
+            df = data_clean_discrete(df, selected_year = 2012, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], logger = logger)
             df = preprocessing(df, cancer_type = cfg["cancer_renamed"])
 
-            print("Successful data read")
+            logger.info("Successful data read")
         # -----------------------------------------------------------------------
 
 
@@ -62,7 +92,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
 
             est = HillClimbSearch(data = df)
             model = est.estimate(scoring_method=BDsScore(df, equivalent_sample_size = 5), fixed_edges=fxd_edges, black_list=blck_lst)
-            print("Successful structure learning")
+            logger.info("Successful structure learning")
         # -----------------------------------------------------------------------
 
 
@@ -106,7 +136,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
                             cmapArc =  plt.get_cmap("hot"),
                             arcColor= arcColor_mine )
 
-            print("Successful graphic models save")
+            logger.info("Successful graphic models save")
         # -----------------------------------------------------------------------
 
 
@@ -146,11 +176,9 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
             # Parameter estimation
             model_bn = BayesianNetwork(model)
 
-            from parameter_estimation import prior_update_iteration
+            model_infer, counts_per_year = prior_update_iteration(model_bn, card_dict, pscount_dict = pscount_dict, size_prior_dataset=size_prior_dataset, config_file = config_file, logger = logger)
 
-            model_infer, counts_per_year = prior_update_iteration(model_bn, card_dict, pscount_dict = pscount_dict, size_prior_dataset=size_prior_dataset, config_file = config_file)
-
-            print("Successful parameter estimation")
+            logger.info("Successful parameter estimation")
             # ----------------------------------------------------------------------
 
 
@@ -163,7 +191,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
 
             csv_quantiles(model_bn, counts_per_year=counts_per_year)
 
-            print("Successful statistics save")
+            logger.info("Successful statistics save")
             # -----------------------------------------------------------------------
 
 
@@ -182,14 +210,14 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
 
             calculate_interval = cfg["inputs"]["calculate_interval"]
             if calculate_interval:
-                predictive_interval(model_bn, col_var, target, row_var, path_to_data = "interval_df/")
+                predictive_interval(model_bn, col_var, target, row_var, path_to_data = "interval_df/", logger = logger)
 
                 col_var = cfg["interval_risk_mapping"]["col_var"]
                 row_var = cfg["interval_risk_mapping"]["row_var"]
 
                 heatmap_plot_and_save(df, model_bn, target, col_var, row_var, interval = True)
 
-            print("Successful risk mapping")
+            logger.info("Successful risk mapping")
         # -----------------------------------------------------------------------
 
 
@@ -202,7 +230,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
             # Increase the n_random_trials to get meaningful results.
             heatmap_data = influential_variables(data=df_pos, target=target, model_bn = model_bn, n_random_trials = cfg["inputs"]["n_random_trials"])
 
-            print("Successful influential variables")
+            logger.info("Successful influential variables")
         # -----------------------------------------------------------------------
 
 
@@ -211,19 +239,41 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
         if evaluation:
             file_path = os.path.join(dir, "data/af_clean.csv")
             df_test = pd.read_csv(file_path, index_col = None)
-            df_test = data_clean_discrete(df_test, selected_year = 2016, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"])
+            df_test = data_clean_discrete(df_test, selected_year = 2016, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], logger=logger)
             df_test = preprocessing(df_test, cancer_type=cfg["cancer_renamed"])
 
-            evaluation_classification(df_test, model_bn, test_var = target)
+            evaluation_classification(df_test, model_bn, test_var = target, logger = logger)
 
-            print("Successful evaluation of the model")
+            logger.info("Successful evaluation of the model")
         # -----------------------------------------------------------------------
+
+        for handler in logging.root.handlers[:]:
+           logging.root.removeHandler(handler)
 
 
 if __name__ == "__main__":
     config_file_list = ["config_CRC.yaml", "config_lung_cancer.yaml", "config_prostate_cancer.yaml", "config_bladder_cancer.yaml", "config_ovarian_cancer.yaml"]
     # config_file_list = ["config_ovarian_cancer.yaml"]
     # config_file_list = ["config_CRC.yaml"]
+    current_dir = os.getcwd()
+    log_dir = os.path.join(current_dir, 'logs')
+
+    # Create the logs directory if it doesn't exist
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    log_dir = os.path.join(current_dir, 'logs', date_str)
+
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    timestamp = datetime.datetime.now().strftime("%H-%M-%S")
+    log_dir = os.path.join(log_dir, f"multicancers_{timestamp}")
+
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
     for config_file in config_file_list:
-        main(config_file = config_file, read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True)
+        main(config_file = config_file, read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True, log_dir = log_dir)
     

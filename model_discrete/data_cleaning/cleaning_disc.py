@@ -269,23 +269,23 @@ def rename_vars(df,cancer_type, cancer_renamed):
 
     return df
 
-def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed = "CRC", selected_year = 2012):
+def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed = "CRC", selected_year = 2012, logger = None):
 
-    print("Dropping duplicates")
+    logger.info("Dropping duplicates")
     df = df.drop_duplicates(subset = ["fpi", "fecha_reco"], ignore_index = True).copy()
     
-    print("Dropping outliers")
+    logger.info("Dropping outliers")
     df = df[df["outlier"] == False].reset_index(drop = True).copy()
     
-    print("Selecting year")
+    logger.info(f"Selecting year: {selected_year}")
     df = df[df["año_reco"] == selected_year].reset_index(drop = True).copy()
     
     # Impute missing values.
-    print("Imputing missing values")
+    logger.info("Imputing missing values")
     df = impute_missing_values_missForest(df)
 
     # Redefine variables. Discretize continuous variables.
-    print("Redefining variables")
+    logger.info("Redefining variables")
     df = redefine_imc(df)
     df = redefine_age(df)
     df = redefine_medical_cond(df)
@@ -298,27 +298,27 @@ def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed =
     df.reset_index(inplace=True, drop = True)'''
 
     # Should we remove patients with other cancers?
-    print("Removing patients with other cancers")
-    print("Before: ", len(df))
+    logger.info("Removing patients with other cancers")
+    logger.info(f"Before: {len(df)}")
     df = remove_patients_other_cancers(df, cancer_type)
-    print("After: ", len(df))
+    logger.info(f"After:  {len(df)}")
 
     # Filter by unique patient
-    print("Filtering by unique patient")
-    print("Before: ", len(df))
+    logger.info("Filtering by unique patient")
+    logger.info(f"Before: {len(df)}")
     df = unique_patient(df, cancer_type)
-    print("After: ", len(df))
+    logger.info(f"After:  {len(df)}")
 
     # Redefine variables
-    print("Redefining variables")
+    logger.info("Redefining variables")
     df = redefine_ses(df)
     df = redefine_alcohol(df)
     df = redefine_pa(df)
     df = rename_vars(df,cancer_type, cancer_renamed)
 
     
-    print("Data cleaning finished")
-    print("Final shape: ", df.shape)
+    logger.info("Data cleaning finished")
+    logger.info(f"Final shape: {df.shape}")
     return df
 
 

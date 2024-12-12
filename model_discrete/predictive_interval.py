@@ -6,11 +6,20 @@ import os
 
 from pgmpy.inference import ApproxInference, VariableElimination
 from pgmpy.factors.discrete import State
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
+
+import yaml
+import gc
 
 from query2df import query2df
 
+dir = os.getcwd()
+with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
+    cfg = yaml.safe_load(file)
 
-def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length = 100, target_variable = "CRC", path_to_data = "interval_df"):
+
+def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length = 100, target_variable = "CRC", path_to_data = "interval_df", logger = None):
     if not os.path.exists(path_to_data):
         os.mkdir(path_to_data)
     
@@ -50,7 +59,7 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
                 q_point = np.log(1 - query2df(  model_infer.query(variables=[target_variable], 
                                                                             evidence={"Sex": Sex, col_var: column, row_var: row},
                                                                             show_progress = False)  ,   verbose = 0)["p"][0])
-                q = np.zeros(q_length)
+                
 
                 df_partial_samples = pd.DataFrame(columns = ["Sex" , col_var, row_var])
                 for n in range(n_samples): df_partial_samples = pd.concat([df_partial_samples, pd.DataFrame(data = {"Sex":[i], col_var:[k], row_var: [j]})])
@@ -59,16 +68,22 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
 
                 import time
 
-                for k in range(len(q)):
+                
 
-                    start_time = time.time()
-                    end_time = time.time()
-                    print("time taken:", end_time - start_time)
+                q = np.array([])
+                n_chunks = 10
+                
+                with ProcessPoolExecutor(max_workers=cfg["inputs"]['max_workers']) as executor:
+                    futures = [executor.submit(run_iteration, i, ) for i in range(q_length / n_chunks)]
+                    all_results = []
+                    for future in tqdm(as_completed(futures), total=(q_length/n_chunks), desc="Processing iterations predictive interval"):
+                        # all_results.append(future.result())
+                        result = future.result()
+                        
+                        q.append(result)
 
-                    start_time = time.time()
-                    q[k] = np.log(1 - query2df(model_approx_infer.query(variables=[target_variable], evidence= {"Sex": Sex, col_var: column, row_var: row},n_samples = n_samples, show_progress = False), verbose = 0)["p"][0])
-                    end_time = time.time()
-                    print("time taken:", end_time - start_time)
+                        del result
+                        gc.collect()
 
                 a = np.sort(q)
 
@@ -78,11 +93,11 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
 
                     df_hom_str.loc[row,column] = f"[ {df_hom_inf.loc[row,column]}, {df_hom_sup.loc[row,column]}]"
 
-                    print(f'Risk interval for men with {col_var} = {column} and {row_var} = {row} is: {df_hom_str.loc[row,column]} ({n_samples} samples and interval of size {q_length})')
+                    logger.info(f'Risk interval for men with {col_var} = {column} and {row_var} = {row} is: {df_hom_str.loc[row,column]} ({n_samples} samples and interval of size {q_length})')
 
                     df_hom.loc[row,column] = round( q_point - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
 
-                    print(f'Pointwise estimation of the risk:', df_hom.loc[row,column])
+                    logger.info(f'Pointwise estimation of the risk:', df_hom.loc[row,column])
                     
                 else:
                     df_muj_inf.loc[row,column] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
@@ -90,11 +105,11 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
 
                     df_muj_str.loc[row,column] = f"[ {df_muj_inf.loc[row,column]}, {df_muj_sup.loc[row,column]}]"
 
-                    print(f'Risk interval for women with {col_var} = {column} and {row_var} = {row} is: {df_muj_str.loc[row,column]} ({n_samples} samples and interval of size {q_length})')
+                    logger.info(f'Risk interval for women with {col_var} = {column} and {row_var} = {row} is: {df_muj_str.loc[row,column]} ({n_samples} samples and interval of size {q_length})')
 
                     df_muj.loc[row,column] = round( q_point - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
 
-                    print(f'Pointwise estimation of the risk:', df_muj.loc[row,column])
+                    logger.info(f'Pointwise estimation of the risk:', df_muj.loc[row,column])
 
                 df_hom.to_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}.csv")
                 df_muj.to_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}.csv")
@@ -103,3 +118,13 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
                 df_muj_str.to_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}_interval.csv")
 
     return df_hom, df_hom_str, df_muj, df_muj_str
+
+
+
+def run_iteration(i, chunk_size, model_approx_infer, target_variable, Sex, col_var, column, row_var, row, n_samples):
+    q_iter = np.zeros(chunk_size)
+    for k in range(chunk_size):
+        q_iter[k] = np.log(1 - query2df(model_approx_infer.query(variables=[target_variable], evidence= {"Sex": Sex, col_var: column, row_var: row},n_samples = n_samples, show_progress = False), verbose = 0)["p"][0])
+
+    return q_iter
+    

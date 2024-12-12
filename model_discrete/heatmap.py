@@ -95,8 +95,6 @@ def heatmap(x, y, text, title = None, **kwargs):
     threshold = 0.5
     if text is not None:
         for i, txt in enumerate(text):
-            '''print(txt)
-            print(type(txt))'''
             if int(np.linalg.norm(c[i]) < threshold) and (int(s[i]) > 5000): 
                 ax.annotate(f"{txt}", (x_i[i], y_i[i]), xytext = (x_i[i], y_i[i] - 0.4), ha = 'center', color = "white")
                 ax.annotate(f"{color[i]}", (x_i[i], y_i[i]), xytext = (x_i[i], y_i[i] + 0.35), ha = 'center', color = "white")
