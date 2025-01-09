@@ -14,12 +14,8 @@ import gc
 
 from query2df import query2df
 
-dir = os.getcwd()
-with open(f'{dir}\configs\config_CRC.yaml', 'r') as file:
-    cfg = yaml.safe_load(file)
 
-
-def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length = 100, target_variable = "CRC", path_to_data = "interval_df", logger = None):
+def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length = 100, target_variable = "CRC", path_to_data = "interval_df", cfg = None, logger = None):
     if not os.path.exists(path_to_data):
         os.mkdir(path_to_data)
     
@@ -68,28 +64,30 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
 
                 import time
 
+                q = None
+                chunk_size = 10
+                n_chunks = int(q_length / chunk_size)
                 
-
-                q = np.array([])
-                n_chunks = 10
                 
-                with ProcessPoolExecutor(max_workers=cfg["inputs"]['max_workers']) as executor:
-                    futures = [executor.submit(run_iteration, i, ) for i in range(q_length / n_chunks)]
+                with ProcessPoolExecutor(max_workers=10) as executor:
+                    futures = [executor.submit(run_iteration, i, chunk_size, model_approx_infer, target_variable, Sex, col_var, column, row_var, row, n_samples ) for i in range(int(n_chunks))]
                     all_results = []
-                    for future in tqdm(as_completed(futures), total=(q_length/n_chunks), desc="Processing iterations predictive interval"):
+                    for future in tqdm(as_completed(futures), total=n_chunks, desc="Processing iterations predictive interval"):
                         # all_results.append(future.result())
                         result = future.result()
                         
-                        q.append(result)
+                        all_results.append(result)
 
                         del result
                         gc.collect()
+                    
+                    q = np.concatenate(all_results)
 
                 a = np.sort(q)
 
                 if Sex == "M":
-                    df_hom_inf.loc[row,column] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
-                    df_hom_sup.loc[row,column] = round( a[round(q_length*94.9 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
+                    df_hom_inf.loc[row,column] = round( a[round(q_length*5 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
+                    df_hom_sup.loc[row,column] = round( a[round(q_length*95 / 100)] - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
 
                     df_hom_str.loc[row,column] = f"[ {df_hom_inf.loc[row,column]}, {df_hom_sup.loc[row,column]}]"
 
@@ -97,11 +95,14 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
 
                     df_hom.loc[row,column] = round( q_point - np.log( 1 - query2df(A_hom, verbose = 0)["p"][0]) , 3 )
 
-                    logger.info(f'Pointwise estimation of the risk:', df_hom.loc[row,column])
+                    logger.info(f'Pointwise estimation of the risk: {df_hom.loc[row,column]}')
+
+                    df_hom.to_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}.csv")
+                    df_muj.to_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}.csv")
                     
                 else:
-                    df_muj_inf.loc[row,column] = round( a[round(q_length*4 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
-                    df_muj_sup.loc[row,column] = round( a[round(q_length*94.9 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
+                    df_muj_inf.loc[row,column] = round( a[round(q_length*5/ 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
+                    df_muj_sup.loc[row,column] = round( a[round(q_length*95 / 100)] - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
 
                     df_muj_str.loc[row,column] = f"[ {df_muj_inf.loc[row,column]}, {df_muj_sup.loc[row,column]}]"
 
@@ -109,7 +110,10 @@ def predictive_interval(model_bn, col_var, row_var, n_samples = 30000 , q_length
 
                     df_muj.loc[row,column] = round( q_point - np.log( 1 - query2df(A_muj, verbose = 0)["p"][0]) , 3 )
 
-                    logger.info(f'Pointwise estimation of the risk:', df_muj.loc[row,column])
+                    logger.info(f'Pointwise estimation of the risk: {df_muj.loc[row,column]}')
+
+                    df_hom_str.to_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}_interval.csv")
+                    df_muj_str.to_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}_interval.csv")
 
                 df_hom.to_csv(f"{path_to_data}/df_hom_{col_var}_{row_var}_{q_length}_{n_samples}.csv")
                 df_muj.to_csv(f"{path_to_data}/df_muj_{col_var}_{row_var}_{q_length}_{n_samples}.csv")

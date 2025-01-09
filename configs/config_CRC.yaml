@@ -3,6 +3,7 @@ cancer_renamed: &cancer CRC
 
 inputs: 
     target: *cancer
+    impute_missing: False
     calculate_interval: False
     n_random_trials: 100
     max_workers: 8
@@ -24,12 +25,14 @@ node_color:
     *cancer: 0.4
 
 pointwise_risk_mapping :
-    col_var: Age
-    row_var: PA
+    col_var: &colvar Age
+    row_var: &rowvar PA
 
 interval_risk_mapping :
-    col_var: Age
-    row_var: BMI
+    n_samples: 30000
+    q_length: 100
+    col_var: *colvar
+    row_var: *rowvar
 
 interval_path : 
     path: "prueba22nov/"

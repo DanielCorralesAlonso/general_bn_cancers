@@ -76,7 +76,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
             file_path = os.path.join(dir, "data/af_clean.csv")
 
             df = pd.read_csv(file_path, index_col = None)
-            df = data_clean_discrete(df, selected_year = 2012, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], logger = logger)
+            df = data_clean_discrete(df, selected_year = 2012, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], impute_missing = cfg['inputs']['impute_missing'], logger = logger)
             df = preprocessing(df, cancer_type = cfg["cancer_renamed"])
 
             logger.info("Successful data read")
@@ -210,12 +210,12 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
 
             calculate_interval = cfg["inputs"]["calculate_interval"]
             if calculate_interval:
-                predictive_interval(model_bn, col_var, target, row_var, path_to_data = "interval_df/", logger = logger)
+                predictive_interval(model_bn, col_var, row_var, target_variable=target, n_samples=cfg['interval_risk_mapping']['n_samples'], q_length=cfg['interval_risk_mapping']['q_length'], path_to_data = "interval_df/", cfg = cfg, logger = logger)
 
                 col_var = cfg["interval_risk_mapping"]["col_var"]
                 row_var = cfg["interval_risk_mapping"]["row_var"]
 
-                heatmap_plot_and_save(df, model_bn, target, col_var, row_var, interval = True)
+                heatmap_plot_and_save(df, model_bn, target, col_var, row_var, n_samples=cfg['interval_risk_mapping']['n_samples'], q_length=cfg['interval_risk_mapping']['q_length'], interval = True)
 
             logger.info("Successful risk mapping")
         # -----------------------------------------------------------------------
@@ -239,7 +239,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
         if evaluation:
             file_path = os.path.join(dir, "data/af_clean.csv")
             df_test = pd.read_csv(file_path, index_col = None)
-            df_test = data_clean_discrete(df_test, selected_year = 2016, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], logger=logger)
+            df_test = data_clean_discrete(df_test, selected_year = 2016, cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], impute_missing=cfg['inputs']['impute_missing'], logger=logger)
             df_test = preprocessing(df_test, cancer_type=cfg["cancer_renamed"])
 
             evaluation_classification(df_test, model_bn, test_var = target, logger = logger)
@@ -252,6 +252,7 @@ def main(config_file = "config_CRC.yaml",read_df = True, structure_learning = Tr
 
 
 if __name__ == "__main__":
+    starting_time = datetime.datetime.now()
     config_file_list = ["config_CRC.yaml", "config_lung_cancer.yaml", "config_prostate_cancer.yaml", "config_bladder_cancer.yaml", "config_ovarian_cancer.yaml"]
     # config_file_list = ["config_ovarian_cancer.yaml"]
     # config_file_list = ["config_CRC.yaml"]
@@ -277,3 +278,5 @@ if __name__ == "__main__":
     for config_file in config_file_list:
         main(config_file = config_file, read_df = True, structure_learning = True, save_learned_model = True, parameter_estimation = True, risk_mapping = True, influential_variable_calc = True, evaluation = True, log_dir = log_dir)
     
+    ending_time = datetime.datetime.now()
+    print(f"Total time: {ending_time - starting_time}")

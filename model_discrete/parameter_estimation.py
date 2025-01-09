@@ -34,7 +34,7 @@ def prior_update_iteration(model_bn, card_dict, pscount_dict, size_prior_dataset
     prior_weight_list = [1, 50, 100, 500]
     for i in range(len(years)):
         df_aux = pd.read_csv("data/af_clean.csv", index_col = None)
-        df_aux = data_clean_discrete(df_aux, selected_year = years[i], cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], logger=logger)
+        df_aux = data_clean_discrete(df_aux, selected_year = years[i], cancer_type = cfg["cancer_type"], cancer_renamed = cfg["cancer_renamed"], impute_missing=cfg['inputs']['impute_missing'], logger=logger)
         df_aux = preprocessing(df_aux, cancer_type = cfg["cancer_renamed"])
         
         counts_tables = model_bn.fit(df_aux, estimator=BayesianEstimator,weighted = False, prior_type = 'dirichlet', pseudo_counts = pscount_dict, n_jobs = -1)

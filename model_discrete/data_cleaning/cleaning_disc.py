@@ -229,6 +229,15 @@ def remove_patients_other_cancers(df, cancer_type):
     df.reset_index(inplace=True, drop = True)
     return df
 
+def clean_impossible_patients(df, cancer_type):
+    if cancer_type == "cancer_prostata":
+        df.drop(df[df["sexo"] == "W" & df["cancer_prostata"] == True].index, inplace = True)
+
+    if cancer_type == "cancer_ovario":
+        df.drop(df[df["sexo"] == "M" & df["cancer_ovario"] == True].index, inplace = True)
+
+    return df
+
 def rename_vars(df,cancer_type, cancer_renamed):
 
     df.loc[df['sexo'] == 'hombre', ["sexo"]] = "M"
@@ -269,7 +278,7 @@ def rename_vars(df,cancer_type, cancer_renamed):
 
     return df
 
-def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed = "CRC", selected_year = 2012, logger = None):
+def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed = "CRC", selected_year = 2012, impute_missing = True,  logger = None):
 
     logger.info("Dropping duplicates")
     df = df.drop_duplicates(subset = ["fpi", "fecha_reco"], ignore_index = True).copy()
@@ -280,9 +289,17 @@ def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed =
     logger.info(f"Selecting year: {selected_year}")
     df = df[df["año_reco"] == selected_year].reset_index(drop = True).copy()
     
-    # Impute missing values.
-    logger.info("Imputing missing values")
-    df = impute_missing_values_missForest(df)
+    
+    if impute_missing:
+        # Impute missing values.
+        logger.info("Imputing missing values")
+        df = impute_missing_values_missForest(df)
+    else: 
+        # Drop the missing values.
+        df.dropna(subset=["sexo", "af","fumador", "consumo_alcohol",
+                    "duracion_sueño", "condicion_socioeconomica_media"],
+                    inplace = True)
+        df.reset_index(inplace=True, drop = True)
 
     # Redefine variables. Discretize continuous variables.
     logger.info("Redefining variables")
@@ -290,12 +307,6 @@ def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed =
     df = redefine_age(df)
     df = redefine_medical_cond(df)
     
-
-    # For now we will drop the missing values.
-    '''df.dropna(subset=["sexo", "af","fumador", "consumo_alcohol",
-                    "duracion_sueño", "condicion_socioeconomica_media"],
-                    inplace = True)
-    df.reset_index(inplace=True, drop = True)'''
 
     # Should we remove patients with other cancers?
     logger.info("Removing patients with other cancers")
@@ -314,6 +325,7 @@ def data_clean_discrete(df, cancer_type = "cancer_colorrectal", cancer_renamed =
     df = redefine_ses(df)
     df = redefine_alcohol(df)
     df = redefine_pa(df)
+    df = clean_impossible_patients(df, cancer_type)
     df = rename_vars(df,cancer_type, cancer_renamed)
 
     
